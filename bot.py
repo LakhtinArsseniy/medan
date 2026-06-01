@@ -1,5 +1,6 @@
 import asyncio
 import os
+import gspread
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -10,8 +11,13 @@ from aiogram.types import (
     InlineKeyboardButton,
     CallbackQuery
 )
+from oauth2client.service_account import ServiceAccountCredentials
 
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+
 from dotenv import load_dotenv
 
 # =========================
@@ -29,8 +35,32 @@ TOKEN = os.getenv("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+
+creds = ServiceAccountCredentials.from_json_keyfile_name(
+    "medan-bot-523cee1f70ac.json",
+    scope
+)
+
+client = gspread.authorize(creds)
+
+sheet = client.open("MEDAN").sheet1
+
 # =========================
-# ГОЛОВНЕ МЕНЮ
+# FSM
+# =========================
+
+class Appointment(StatesGroup):
+
+    fullname = State()
+    birthday = State()
+    phone = State()
+
+# =========================
+# MENU
 # =========================
 
 def main_keyboard():
@@ -43,12 +73,25 @@ def main_keyboard():
     kb.button(text="🧾 УЗД")
     kb.button(text="🔬 Аналізи")
 
-    kb.button(text="📅 Графік")
     kb.button(text="📞 Контакти")
+    kb.button(text="🏠 Головне меню")
 
-    kb.adjust(2)
+    kb.adjust(2, 2, 2)
 
     return kb.as_markup(resize_keyboard=True)
+
+# =========================
+# MAIN MENU
+# =========================
+
+async def open_main_menu(message):
+
+    await message.answer(
+        "🏥 <b>Головне меню</b>\n\n"
+        "👇 Оберіть потрібний розділ",
+        reply_markup=main_keyboard(),
+        parse_mode="HTML"
+    )
 
 # =========================
 # START
@@ -62,12 +105,9 @@ async def start(message: Message):
     text = (
         "🏥 <b>MEDAN</b>\n\n"
         "Медичний центр з турботою про вас 💙\n\n"
-
-        "🔹 Консультації лікарів\n"
+        "🔹 Онлайн запис\n"
         "🔹 УЗД та аналізи\n"
-        "🔹 Денний стаціонар\n"
-        "🔹 Сучасне обладнання\n\n"
-
+        "🔹 Консультації лікарів\n\n"
         "👇 Оберіть потрібний розділ"
     )
 
@@ -79,14 +119,115 @@ async def start(message: Message):
     )
 
 # =========================
-# ОБРОБКА КНОПОК
+# FSM FULLNAME
+# =========================
+
+@dp.message(Appointment.fullname)
+async def get_fullname(
+    message: Message,
+    state: FSMContext
+):
+
+    await state.update_data(
+        fullname=message.text
+    )
+
+    await message.answer(
+        "🎂 Введіть дату народження:"
+    )
+
+    await state.set_state(
+        Appointment.birthday
+    )
+
+# =========================
+# FSM BIRTHDAY
+# =========================
+
+@dp.message(Appointment.birthday)
+async def get_birthday(
+    message: Message,
+    state: FSMContext
+):
+
+    await state.update_data(
+        birthday=message.text
+    )
+
+    await message.answer(
+        "📞 Введіть номер телефону:"
+    )
+
+    await state.set_state(
+        Appointment.phone
+    )
+
+# =========================
+# FSM PHONE
+# =========================
+
+@dp.message(Appointment.phone)
+async def get_phone(
+    message: Message,
+    state: FSMContext
+):
+
+
+    await state.update_data(
+        phone=message.text
+    )
+
+    data = await state.get_data()
+
+    sheet.append_row([
+        data["doctor"],
+        data["day"],
+        data["fullname"],
+        data["birthday"],
+        data["phone"]
+    ])
+
+    await message.answer(
+        "✅ <b>Запис успішний!</b>\n\n"
+
+        f"👨‍⚕️ Лікар: {data['doctor']}\n"
+        f"📅 День: {data['day']}\n"
+        f"⏰ Час: {data['time']}\n\n"
+
+        f"👤 ПІБ: {data['fullname']}\n"
+        f"🎂 Дата народження: {data['birthday']}\n"
+        f"📞 Телефон: {data['phone']}\n\n"
+
+        "📞 Адміністратор скоро зв'яжеться з вами.",
+
+        parse_mode="HTML"
+    )
+
+    await state.clear()
+
+# =========================
+# BUTTONS
 # =========================
 
 @dp.message()
-async def buttons(message: Message):
+async def buttons(
+    message: Message,
+    state: FSMContext
+):
 
-    # ЛІКАРІ
-    if message.text == "👨‍⚕️ Лікарі":
+    current_state = await state.get_state()
+
+    if await state.get_state():
+        return
+
+
+    # MAIN MENU
+    if message.text == "🏠 Головне меню":
+
+        await open_main_menu(message)
+
+    # DOCTORS
+    elif message.text == "👨‍⚕️ Лікарі":
 
         doctors_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -94,28 +235,28 @@ async def buttons(message: Message):
                 [
                     InlineKeyboardButton(
                         text="❤️ Кардіолог",
-                        callback_data="cardio"
+                        callback_data="doctor_cardio"
                     )
                 ],
 
                 [
                     InlineKeyboardButton(
                         text="👩‍⚕️ Гінеколог",
-                        callback_data="ginekolog"
+                        callback_data="doctor_ginekolog"
                     )
                 ],
 
                 [
                     InlineKeyboardButton(
                         text="🩺 Уролог",
-                        callback_data="urolog"
+                        callback_data="doctor_urolog"
                     )
                 ],
 
                 [
                     InlineKeyboardButton(
                         text="🦴 Травматолог",
-                        callback_data="travma"
+                        callback_data="doctor_travma"
                     )
                 ]
             ]
@@ -127,138 +268,268 @@ async def buttons(message: Message):
             parse_mode="HTML"
         )
 
-    # ПОСЛУГИ
+    # SERVICES
     elif message.text == "🩺 Послуги":
 
         await message.answer(
-            "🩺 <b>Послуги медцентру</b>\n\n"
-
+            "🩺 <b>Послуги</b>\n\n"
             "• Внутрішньосуглобові ін'єкції\n"
             "• Блокади\n"
             "• Денний стаціонар\n"
             "• Видалення родимок\n"
-            "• Видалення папілом\n"
             "• Радіохвильове видалення",
-
             parse_mode="HTML"
         )
 
-    # УЗД
+    # UZD
     elif message.text == "🧾 УЗД":
 
         await message.answer(
             "🧾 <b>УЗД</b>\n\n"
-
             "• Гінекологія\n"
             "• Урологія\n"
             "• Кардіологія\n"
-            "• Внутрішні органи\n"
             "• Судини",
-
             parse_mode="HTML"
         )
 
-    # АНАЛІЗИ
+    # ANALYSES
     elif message.text == "🔬 Аналізи":
 
         await message.answer(
             "🔬 <b>Лабораторія</b>\n\n"
-
-            "🕗 Пн – Пт: 08:00 – 11:30\n"
-            "🕗 Субота: 08:00 – 11:00\n"
-            "❌ Неділя: вихідний\n\n"
-
-            "💬 Ціни на аналізи скоро будуть доступні.",
-
+            "🕗 Пн–Пт: 08:00–11:30\n"
+            "🕗 Субота: 08:00–11:00",
             parse_mode="HTML"
         )
 
-    # ГРАФІК
-    elif message.text == "📅 Графік":
-
-        await message.answer(
-            "📅 <b>Графік роботи</b>\n\n"
-
-            "Пн – Пт: 08:00 – 18:00\n"
-            "Субота: 09:00 – 15:00\n"
-            "Неділя: вихідний",
-
-            parse_mode="HTML"
-        )
-
-    # КОНТАКТИ
+    # CONTACTS
     elif message.text == "📞 Контакти":
 
         await message.answer(
             "📞 <b>Контакти</b>\n\n"
-
             "☎️ +380 XX XXX XX XX\n"
-            "📍 м. Чугуїв\n"
-            "🌐 Сайт: скоро буде",
-
+            "📍 м. Чугуїв",
             parse_mode="HTML"
         )
 
-    # НЕВІДОМІ КНОПКИ
-    else:
-
-        await message.answer(
-            "❗ Оберіть кнопку з меню нижче."
-        )
-
 # =========================
-# CALLBACK КНОПКИ
+# CALLBACKS
 # =========================
 
 @dp.callback_query()
-async def callbacks(callback: CallbackQuery):
+async def callbacks(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    
 
-    # КАРДІОЛОГ
-    if callback.data == "cardio":
+    # =====================
+    # DOCTOR
+    # =====================
+    if callback.data.startswith("doctor_"):
+
+        doctor_name = callback.data.replace(
+            "doctor_",
+            ""
+        )
+
+        names = {
+            "cardio": "❤️ Кардіолог",
+            "ginekolog": "👩‍⚕️ Гінеколог",
+            "urolog": "🩺 Уролог",
+            "travma": "🦴 Травматолог"
+        }
+
+        doctor_title = names[doctor_name]
+
+        await state.update_data(
+            doctor=doctor_title
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
 
         await callback.message.answer(
-            "❤️ <b>Кардіолог</b>\n\n"
+            f"{doctor_title}\n\n"
             "📞 +380 XX XXX XX XX\n"
             "👨‍⚕️ Прийом за записом",
+            reply_markup=keyboard
+        )
+
+    # =====================
+    # MAIN MENU
+    # =====================
+
+    elif callback.data == "main_menu":
+
+        await open_main_menu(callback.message)
+
+    # =====================
+    # DAYS
+    # =====================
+
+    elif callback.data == "open_days":
+
+        days_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 Пн 27.05",
+                        callback_data="day_27.05"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 Ср 29.05",
+                        callback_data="day_29.05"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🔴 Пт 31.05",
+                        callback_data="busy_day"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Назад",
+                        callback_data="main_menu"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "📅 <b>Оберіть день:</b>",
+            reply_markup=days_keyboard,
             parse_mode="HTML"
         )
 
-    # ГІНЕКОЛОГ
-    elif callback.data == "ginekolog":
+    # =====================
+    # BUSY DAY
+    # =====================
+
+    elif callback.data == "busy_day":
+
+        await callback.answer(
+            "❌ У цей день прийому немає",
+            show_alert=True
+        )
+
+    # =====================
+    # TIME
+    # =====================
+
+    elif callback.data.startswith("day_"):
+
+        selected_day = callback.data.replace(
+            "day_",
+            ""
+        )
+
+        await state.update_data(
+            day=selected_day
+        )
+
+        time_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 10:00",
+                        callback_data="time_10:00"
+                    ),
+
+                    InlineKeyboardButton(
+                        text="🔴 10:30",
+                        callback_data="busy_time"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 11:00",
+                        callback_data="time_11:00"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Назад",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
 
         await callback.message.answer(
-            "👩‍⚕️ <b>Гінеколог</b>\n\n"
-            "📞 +380 XX XXX XX XX",
+            f"📅 День: {selected_day}\n\n"
+            "⏰ <b>Оберіть час:</b>",
+
+            reply_markup=time_keyboard,
             parse_mode="HTML"
         )
 
-    # УРОЛОГ
-    elif callback.data == "urolog":
+    # =====================
+    # BUSY TIME
+    # =====================
 
-        await callback.message.answer(
-            "🩺 <b>Уролог</b>\n\n"
-            "📞 +380 XX XXX XX XX",
-            parse_mode="HTML"
+    elif callback.data == "busy_time":
+
+        await callback.answer(
+            "❌ Цей час зайнятий",
+            show_alert=True
         )
 
-    # ТРАВМАТОЛОГ
-    elif callback.data == "travma":
+    # =====================
+    # SELECTED TIME
+    # =====================
+
+    elif callback.data.startswith("time_"):
+
+        selected_time = callback.data.replace(
+            "time_",
+            ""
+        )
+
+        await state.update_data(
+            time=selected_time
+        )
 
         await callback.message.answer(
-            "🦴 <b>Травматолог</b>\n\n"
-            "📞 +380 XX XXX XX XX",
-            parse_mode="HTML"
+            "👤 Введіть ПІБ:"
+        )
+
+        await state.set_state(
+            Appointment.fullname
         )
 
     await callback.answer()
 
 # =========================
-# ЗАПУСК
+# START BOT
 # =========================
 
 async def main():
 
     print("Бот запущений!")
+
+    await bot.delete_webhook(
+        drop_pending_updates=True
+    )
 
     await dp.start_polling(bot)
 
