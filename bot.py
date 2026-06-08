@@ -284,12 +284,38 @@ async def buttons(
     # UZD
     elif message.text == "🧾 УЗД":
 
+        uzd_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="👩‍⚕️ Гінекологія",
+                        callback_data="uzd_ginekologiya"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🩺 Урологія",
+                        callback_data="uzd_urologiya"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="❤️ Кардіологія",
+                        callback_data="uzd_kardiologiya"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🩸 Судини",
+                        callback_data="uzd_sudyny"
+                    )
+                ]
+            ]
+        )
+
         await message.answer(
-            "🧾 <b>УЗД</b>\n\n"
-            "• Гінекологія\n"
-            "• Урологія\n"
-            "• Кардіологія\n"
-            "• Судини",
+            "🧾 <b>УЗД</b>\n\n👇 Оберіть напрямок:",
+            reply_markup=uzd_keyboard,
             parse_mode="HTML"
         )
 
@@ -322,6 +348,8 @@ async def callbacks(
     callback: CallbackQuery,
     state: FSMContext
 ):
+    
+    
     
 
     # =====================
@@ -515,6 +543,30 @@ async def callbacks(
 
         await state.set_state(
             Appointment.fullname
+        )
+
+    elif callback.data == "uzd_ginekologiya":
+
+        await callback.message.answer(
+            "👩‍⚕️ УЗД Гінекологія"
+        )
+
+    elif callback.data == "uzd_urologiya":
+
+        await callback.message.answer(
+            "🩺 УЗД Урологія"
+        )
+
+    elif callback.data == "uzd_kardiologiya":
+
+        await callback.message.answer(
+            "❤️ УЗД Кардіологія"
+        )
+
+    elif callback.data == "uzd_sudyny":
+
+        await callback.message.answer(
+            "🩸 УЗД Судини"
         )
 
     await callback.answer()
