@@ -1,6 +1,5 @@
 import asyncio
 import os
-import gspread
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -11,7 +10,6 @@ from aiogram.types import (
     InlineKeyboardButton,
     CallbackQuery
 )
-from oauth2client.service_account import ServiceAccountCredentials
 
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
@@ -35,19 +33,6 @@ TOKEN = os.getenv("TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
-
-creds = ServiceAccountCredentials.from_json_keyfile_name(
-    "medan-bot-523cee1f70ac.json",
-    scope
-)
-
-client = gspread.authorize(creds)
-
-sheet = client.open("MEDAN").sheet1
 
 # =========================
 # FSM
@@ -178,14 +163,6 @@ async def get_phone(
     )
 
     data = await state.get_data()
-
-    sheet.append_row([
-        data["doctor"],
-        data["day"],
-        data["fullname"],
-        data["birthday"],
-        data["phone"]
-    ])
 
     await message.answer(
         "✅ <b>Запис успішний!</b>\n\n"
