@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -49,6 +50,7 @@ class Appointment(StatesGroup):
 # =========================
 
 def main_keyboard():
+    
 
     kb = ReplyKeyboardBuilder()
 
@@ -63,8 +65,9 @@ def main_keyboard():
 
     kb.adjust(2, 2, 2)
 
-    return kb.as_markup(resize_keyboard=True)
+    kb.button(text="▶️ Почати")
 
+    return kb.as_markup(resize_keyboard=True)
 # =========================
 # MAIN MENU
 # =========================
@@ -151,15 +154,28 @@ async def get_birthday(
 # FSM PHONE
 # =========================
 
+import re
+
 @dp.message(Appointment.phone)
 async def get_phone(
     message: Message,
     state: FSMContext
 ):
 
+    phone = message.text.strip()
+
+    pattern = r"^\+380\d{9}$"
+
+    if not re.match(pattern, phone):
+        await message.answer(
+            "❌ Невірний номер телефону!\n\n"
+            "Приклад:\n"
+            "+380XXXXXXXXX"
+        )
+        return
 
     await state.update_data(
-        phone=message.text
+        phone=phone
     )
 
     data = await state.get_data()
@@ -253,8 +269,7 @@ async def buttons(
             "• Внутрішньосуглобові ін'єкції\n"
             "• Блокади\n"
             "• Денний стаціонар\n"
-            "• Видалення родимок\n"
-            "• Радіохвильове видалення",
+            "• Радіохвильове видалення родимок, новусів, папілом",
             parse_mode="HTML"
         )
 
@@ -286,9 +301,18 @@ async def buttons(
                         text="🩸 Судини",
                         callback_data="uzd_sudyny"
                     )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🫀 Внутрішні органи",
+                        callback_data="uzd_vnutrishni"
+                    )
                 ]
+                
             ]
         )
+
 
         await message.answer(
             "🧾 <b>УЗД</b>\n\n👇 Оберіть напрямок:",
@@ -311,8 +335,9 @@ async def buttons(
 
         await message.answer(
             "📞 <b>Контакти</b>\n\n"
-            "☎️ +380 XX XXX XX XX\n"
-            "📍 м. Чугуїв",
+            "📍 м. Чугуїв\n"
+            "🏠 вул. Леонова, 6Г\n\n"
+            "☎️ +380 98 850 12 32",
             parse_mode="HTML"
         )
 
@@ -522,31 +547,38 @@ async def callbacks(
             Appointment.fullname
         )
 
-    elif callback.data == "uzd_ginekologiya":
+    elif callback.data.startswith("uzd_"):
 
-        await callback.message.answer(
-            "👩‍⚕️ УЗД Гінекологія"
+        names = {
+            "uzd_ginekologiya": "👩‍⚕️ УЗД Гінекологія",
+            "uzd_urologiya": "🩺 УЗД Урологія",
+            "uzd_kardiologiya": "❤️ УЗД Кардіологія",
+            "uzd_sudyny": "🩸 УЗД Судини",
+            "uzd_vnutrishni": "🫀 УЗД Внутрішні органи"
+        }
+
+        await state.update_data(
+            doctor=names[callback.data]
         )
 
-    elif callback.data == "uzd_urologiya":
-
-        await callback.message.answer(
-            "🩺 УЗД Урологія"
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
         )
 
-    elif callback.data == "uzd_kardiologiya":
-
         await callback.message.answer(
-            "❤️ УЗД Кардіологія"
+            f"{names[callback.data]}\n\n"
+            "📞 Запис на обстеження",
+            reply_markup=keyboard
         )
 
-    elif callback.data == "uzd_sudyny":
 
-        await callback.message.answer(
-            "🩸 УЗД Судини"
-        )
-
-    await callback.answer()
 
 # =========================
 # START BOT
