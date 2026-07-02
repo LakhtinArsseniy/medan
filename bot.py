@@ -61,11 +61,10 @@ def main_keyboard():
     kb.button(text="🔬 Аналізи")
 
     kb.button(text="📞 Контакти")
+    kb.button(text="🗺️ Google Maps")
     kb.button(text="🏠 Головне меню")
 
     kb.adjust(2, 2, 2)
-
-    kb.button(text="▶️ Почати")
 
     return kb.as_markup(resize_keyboard=True)
 # =========================
@@ -88,14 +87,11 @@ async def open_main_menu(message):
 @dp.message(CommandStart())
 async def start(message: Message):
 
-    photo = FSInputFile("photos/logo.jpg")
+    photo = FSInputFile("photos/clinic.jpg")
 
     text = (
         "🏥 <b>MEDAN</b>\n\n"
-        "Медичний центр з турботою про вас 💙\n\n"
-        "🔹 Онлайн запис\n"
-        "🔹 УЗД та аналізи\n"
-        "🔹 Консультації лікарів\n\n"
+        "Вас вітає Медичний Центр Medan!💙"
         "👇 Оберіть потрібний розділ"
     )
 
@@ -154,8 +150,6 @@ async def get_birthday(
 # FSM PHONE
 # =========================
 
-import re
-
 @dp.message(Appointment.phone)
 async def get_phone(
     message: Message,
@@ -164,13 +158,12 @@ async def get_phone(
 
     phone = message.text.strip()
 
-    pattern = r"^\+380\d{9}$"
+    pattern = r"^0\d{9}$"
 
-    if not re.match(pattern, phone):
+    if not re.fullmatch(pattern, phone):
         await message.answer(
             "❌ Невірний номер телефону!\n\n"
-            "Приклад:\n"
-            "+380XXXXXXXXX"
+            "Приклад: 0XXXXXXXXX"
         )
         return
 
@@ -183,7 +176,10 @@ async def get_phone(
     await message.answer(
         "✅ <b>Запис успішний!</b>\n\n"
 
-        f"👨‍⚕️ Лікар: {data['doctor']}\n"
+        f"🧾 Послуга: {data.get('service', data['doctor'])}\n"
+        f"💰 Вартість: {data.get('price', '-')}\n"
+        f"⏱ Тривалість: {data.get('duration', '-')}\n\n"
+
         f"📅 День: {data['day']}\n"
         f"⏰ Час: {data['time']}\n\n"
 
@@ -278,44 +274,39 @@ async def buttons(
 
         uzd_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="👩‍⚕️ Гінекологія",
-                        callback_data="uzd_ginekologiya"
-                    )
-                ],
+
                 [
                     InlineKeyboardButton(
                         text="🩺 Урологія",
-                        callback_data="uzd_urologiya"
+                        callback_data="uzd_urology"
                     )
                 ],
-                [
-                    InlineKeyboardButton(
-                        text="❤️ Кардіологія",
-                        callback_data="uzd_kardiologiya"
-                    )
-                ],
+
                 [
                     InlineKeyboardButton(
                         text="🩸 Судини",
-                        callback_data="uzd_sudyny"
+                        callback_data="uzd_vessels"
                     )
                 ],
 
                 [
                     InlineKeyboardButton(
                         text="🫀 Внутрішні органи",
-                        callback_data="uzd_vnutrishni"
+                        callback_data="uzd_organs"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="👩 Гінекологія",
+                        callback_data="uzd_gyn"
                     )
                 ]
-                
             ]
         )
 
-
         await message.answer(
-            "🧾 <b>УЗД</b>\n\n👇 Оберіть напрямок:",
+            "🧾 <b>Оберіть напрямок УЗД</b>",
             reply_markup=uzd_keyboard,
             parse_mode="HTML"
         )
@@ -330,14 +321,33 @@ async def buttons(
             parse_mode="HTML"
         )
 
-    # CONTACTS
+    # Google Maps
+    elif message.text == "🗺️ Google Maps":
+
+        maps_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📍 Відкрити карту",
+                        url="https://maps.app.goo.gl/ВАШЕ_ПОСИЛАННЯ"
+                    )
+                ]
+            ]
+        )
+
+        await message.answer(
+            "📍 Натисніть кнопку нижче, щоб відкрити місцезнаходження медичного центру MEDAN.",
+            reply_markup=maps_keyboard
+        )
+
+# CONTACTS
     elif message.text == "📞 Контакти":
 
         await message.answer(
             "📞 <b>Контакти</b>\n\n"
             "📍 м. Чугуїв\n"
             "🏠 вул. Леонова, 6Г\n\n"
-            "☎️ +380 98 850 12 32",
+            "☎️ +38 (098) 850-12-32",
             parse_mode="HTML"
         )
 
@@ -390,7 +400,6 @@ async def callbacks(
 
         await callback.message.answer(
             f"{doctor_title}\n\n"
-            "📞 +380 XX XXX XX XX\n"
             "👨‍⚕️ Прийом за записом",
             reply_markup=keyboard
         )
@@ -547,18 +556,157 @@ async def callbacks(
             Appointment.fullname
         )
 
-    elif callback.data.startswith("uzd_"):
+    elif callback.data == "uzd_urology":
 
-        names = {
-            "uzd_ginekologiya": "👩‍⚕️ УЗД Гінекологія",
-            "uzd_urologiya": "🩺 УЗД Урологія",
-            "uzd_kardiologiya": "❤️ УЗД Кардіологія",
-            "uzd_sudyny": "🩸 УЗД Судини",
-            "uzd_vnutrishni": "🫀 УЗД Внутрішні органи"
-        }
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 УЗД нирок",
+                        callback_data="service_kidney"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 УЗД сечового міхура",
+                        callback_data="service_bladder"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 УЗД простати",
+                        callback_data="service_prostate"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 УЗД мошонки",
+                        callback_data="service_scrotum"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 Нирки + сечовий міхур",
+                        callback_data="service_kidney_bladder"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🟢 Сечовий міхур + простата",
+                        callback_data="service_bladder_prostate"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩺 <b>Оберіть послугу</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    elif callback.data == "uzd_vessels":
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="🩸 Судини шиї",
+                        callback_data="service_neck"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🦵 Артерії нижніх кінцівок",
+                        callback_data="service_artery"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🦵 Вени нижніх кінцівок",
+                        callback_data="service_vein"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🦵 Одна кінцівка (вени/артерії)",
+                        callback_data="service_one_leg"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩸 <b>Оберіть послугу</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    elif callback.data == "uzd_organs":
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="🫀 Черевна порожнина",
+                        callback_data="service_abdomen"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🩺 Нирки",
+                        callback_data="service_kidneys2"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="❤️ Серце",
+                        callback_data="service_heart"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="🦋 Щитовидна залоза",
+                        callback_data="service_thyroid"
+                    )
+                ],
+
+                [
+                    InlineKeyboardButton(
+                        text="💧 Сечовидільна система",
+                        callback_data="service_urinary"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🫀 <b>Оберіть послугу</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+        
+    elif callback.data == "service_abdomen":
 
         await state.update_data(
-            doctor=names[callback.data]
+            doctor="🫀 Внутрішні органи",
+            service="УЗД черевної порожнини",
+            price="650 грн",
+            duration="20 хв"
         )
 
         keyboard = InlineKeyboardMarkup(
@@ -573,13 +721,307 @@ async def callbacks(
         )
 
         await callback.message.answer(
-            f"{names[callback.data]}\n\n"
-            "📞 Запис на обстеження",
+            "🫀 УЗД черевної порожнини\n\n"
+            "💰 650 грн\n"
+            "⏱ 20 хв\n\n"
+            "📌 Підготовка:\n"
+            "5–6 годин не їсти.\n"
+            "Воду можна пити у невеликій кількості.",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_kidneys2":
+
+        await state.update_data(
+            doctor="🫀 Внутрішні органи",
+            service="УЗД нирок",
+            price="550 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩺 УЗД нирок\n\n"
+            "💰 550 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_heart":
+
+        await state.update_data(
+            doctor="🫀 Внутрішні органи",
+            service="УЗД серця",
+            price="650 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "❤️ УЗД серця\n\n"
+            "💰 650 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_thyroid":
+
+        await state.update_data(
+            doctor="🫀 Внутрішні органи",
+            service="УЗД щитовидної залози",
+            price="550 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🦋 УЗД щитовидної залози\n\n"
+            "💰 550 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_urinary":
+
+        await state.update_data(
+            doctor="🫀 Внутрішні органи",
+            service="УЗД органів сечовидільної системи",
+            price="650 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "💧 УЗД органів сечовидільної системи\n\n"
+            "💰 650 грн\n"
+            "⏱ 20 хв",
             reply_markup=keyboard
         )
 
 
+    elif callback.data == "service_kidney":
 
+        await state.update_data(
+            doctor="🩺 Урологія",
+            service="УЗД нирок",
+            price="550 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩺 УЗД нирок\n\n"
+            "💰 550 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+
+    elif callback.data == "service_neck":
+
+        await state.update_data(
+            doctor="🩸 Судини",
+            service="УЗД судин шиї",
+            price="650 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩸 УЗД судин шиї\n\n"
+            "💰 650 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "uzd_gyn":
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+
+                [
+                    InlineKeyboardButton(
+                        text="👩 УЗД органів малого тазу",
+                        callback_data="service_pelvis"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "👩 <b>Оберіть послугу</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    elif callback.data == "service_pelvis":
+
+        await state.update_data(
+            doctor="👩 Гінекологія",
+            service="УЗД органів малого тазу",
+            price="600 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "👩 УЗД органів малого тазу\n\n"
+            "💰 600 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+
+    elif callback.data == "service_artery":
+
+        await state.update_data(
+            doctor="🩸 Судини",
+            service="УЗД артерій нижніх кінцівок",
+            price="700 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩸 УЗД артерій нижніх кінцівок\n\n"
+            "💰 700 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_vein":
+
+        await state.update_data(
+            doctor="🩸 Судини",
+            service="УЗД вен нижніх кінцівок",
+            price="700 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩸 УЗД вен нижніх кінцівок\n\n"
+            "💰 700 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
+
+    elif callback.data == "service_one_leg":
+
+        await state.update_data(
+            doctor="🩸 Судини",
+            service="УЗД вен або артерій однієї кінцівки",
+            price="500 грн",
+            duration="20 хв"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📝 Записатися",
+                        callback_data="open_days"
+                    )
+                ]
+            ]
+        )
+
+        await callback.message.answer(
+            "🩸 УЗД вен або артерій однієї кінцівки\n\n"
+            "💰 500 грн\n"
+            "⏱ 20 хв",
+            reply_markup=keyboard
+        )
 # =========================
 # START BOT
 # =========================
